@@ -1,16 +1,25 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-  <meta charset="UTF-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Interactive Scatterplot with D3.js</title>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>D3 Interactive Scatterplot (from CSV)</title>
   <script src="https://d3js.org/d3.v7.min.js"></script>
   <style>
-    /* Styling for the scatterplot and tooltip */
+    body {
+      font-family: sans-serif;
+      margin: 30px;
+    }
+
+    svg {
+      background-color: #f9f9f9;
+      border: 1px solid #ccc;
+    }
+
     .dot {
       fill: steelblue;
       cursor: pointer;
-      transition: fill 0.3s;
+      transition: fill 0.2s;
     }
 
     .dot:hover {
@@ -21,100 +30,101 @@
       position: absolute;
       background-color: rgba(0, 0, 0, 0.7);
       color: white;
-      padding: 5px;
-      border-radius: 5px;
+      padding: 6px;
+      border-radius: 4px;
       pointer-events: none;
       display: none;
       font-size: 12px;
-      text-align: center;
-    }
-
-    svg {
-      background-color: #f9f9f9;
     }
   </style>
 </head>
 <body>
-
-  <h1>Interactive Scatterplot with D3.js</h1>
+  <h1>Interactive Scatterplot (CSV Data)</h1>
   <div id="scatterplot"></div>
 
   <script>
-    // Set the dimensions of the SVG container
-    const width = 600;
-    const height = 400;
+    const margin = { top: 20, right: 20, bottom: 40, left: 50 },
+          width = 600 - margin.left - margin.right,
+          height = 400 - margin.top - margin.bottom;
 
-    // Create the SVG container
     const svg = d3.select("#scatterplot")
       .append("svg")
-      .attr("width", width)
-      .attr("height", height);
+      .attr("width", width + margin.left + margin.right)
+      .attr("height", height + margin.top + margin.bottom)
+      .append("g")
+      .attr("transform", `translate(${margin.left},${margin.top})`);
 
-    // Set up scales for the axes
-    const xScale = d3.scaleLinear()
-      .domain([0, 100])  // Data range for x (adjust based on your data)
-      .range([0, width]);
-
-    const yScale = d3.scaleLinear()
-      .domain([0, 100])  // Data range for y (adjust based on your data)
-      .range([height, 0]);
-
-    // Create the axes
-    const xAxis = d3.axisBottom(xScale);
-    const yAxis = d3.axisLeft(yScale);
-
-    // Append axes to the SVG container
-    svg.append("g")
-      .attr("transform", "translate(0," + height + ")")
-      .call(xAxis);
-
-    svg.append("g")
-      .call(yAxis);
-
-    // Tooltip setup
-    const tooltip = d3.select("body")
-      .append("div")
+    const tooltip = d3.select("body").append("div")
       .attr("class", "tooltip");
 
-    // Example data: replace with your own dataset
-    const data = [
-      {x: 10, y: 20}, {x: 30, y: 40}, {x: 50, y: 60}, {x: 70, y: 80}, {x: 90, y: 100},
-      {x: 20, y: 10}, {x: 40, y: 30}, {x: 60, y: 50}, {x: 80, y: 70}, {x: 100, y: 90}
-    ];
-
-    // Add data points (dots) to the scatterplot
-    svg.selectAll(".dot")
-      .data(data)
-      .enter().append("circle")
-      .attr("class", "dot")
-      .attr("cx", d => xScale(d.x))
-      .attr("cy", d => yScale(d.y))
-      .attr("r", 5)
-      .on("mouseover", function(event, d) {
-        tooltip.style("display", "block")
-          .html(`x: ${d.x}<br>y: ${d.y}`)
-          .style("left", (event.pageX + 10) + "px")
-          .style("top", (event.pageY - 20) + "px");
-      })
-      .on("mouseout", function() {
-        tooltip.style("display", "none");
+    // Load data from CSV
+    d3.csv("data.csv").then(data => {
+      // Convert strings to numbers
+      data.forEach(d => {
+        d.x = +d.x;
+        d.y = +d.y;
       });
 
-    // Zooming and panning (optional)
-    const zoom = d3.zoom()
-      .scaleExtent([1, 10])  // Limits the zooming scale
-      .on("zoom", zoomed);
+      // Define scales based on data extents
+      const xScale = d3.scaleLinear()
+        .domain(d3.extent(data, d => d.x)).nice()
+        .range([0, width]);
 
-    svg.call(zoom);
+      const yScale = d3.scaleLinear()
+        .domain(d3.extent(data, d => d.y)).nice()
+        .range([height, 0]);
 
-    function zoomed(event) {
-      const transform = event.transform;
+      // Create axes
+      const xAxis = d3.axisBottom(xScale);
+      const yAxis = d3.axisLeft(yScale);
+
+      // Append axes
+      svg.append("g")
+        .attr("transform", `translate(0,${height})`)
+        .attr("class", "x-axis")
+        .call(xAxis);
+
+      svg.append("g")
+        .attr("class", "y-axis")
+        .call(yAxis);
+
+      // Draw points
       svg.selectAll(".dot")
-        .attr("transform", transform);
-      svg.select(".x-axis").call(xAxis.scale(transform.rescaleX(xScale)));
-      svg.select(".y-axis").call(yAxis.scale(transform.rescaleY(yScale)));
-    }
-  </script>
+        .data(data)
+        .enter().append("circle")
+        .attr("class", "dot")
+        .attr("cx", d => xScale(d.x))
+        .attr("cy", d => yScale(d.y))
+        .attr("r", 5)
+        .on("mouseover", (event, d) => {
+          tooltip
+            .style("display", "block")
+            .html(`x: ${d.x}<br>y: ${d.y}`)
+            .style("left", (event.pageX + 10) + "px")
+            .style("top", (event.pageY - 20) + "px");
+        })
+        .on("mouseout", () => tooltip.style("display", "none"));
 
+      // Add zooming and panning
+      const zoom = d3.zoom()
+        .scaleExtent([1, 10])
+        .on("zoom", event => {
+          const transform = event.transform;
+          const newX = transform.rescaleX(xScale);
+          const newY = transform.rescaleY(yScale);
+
+          svg.selectAll(".dot")
+            .attr("cx", d => newX(d.x))
+            .attr("cy", d => newY(d.y));
+
+          svg.select(".x-axis").call(xAxis.scale(newX));
+          svg.select(".y-axis").call(yAxis.scale(newY));
+        });
+
+      svg.call(zoom);
+    }).catch(error => {
+      console.error("Error loading the CSV file:", error);
+    });
+  </script>
 </body>
 </html>
